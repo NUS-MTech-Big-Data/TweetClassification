@@ -1,8 +1,9 @@
+import Main.df_flatten
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.sql.functions.{concat_ws, _}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.{concat_ws, _}
 
-object Main extends App {
+object Test extends App {
   val kafkaHost = "192.168.1.77:9092"
   val sparkWriteCheckPoint = "write_checkpoint"
   val spark = SparkSession.builder.appName("TweetClassification").master("local[*]").getOrCreate()
@@ -28,27 +29,18 @@ object Main extends App {
   val mlModel = PipelineModel.read.load("v1_supervised_bert")
   val results = mlModel.transform(df_flatten)
     .select(
-      col("parsed.Id").cast("string").alias("key"), // key must be string or bytes
-      to_json(struct(
-        col("parsed.CreatedAt").as("CreatedAt"),
-        col("parsed.Id").as("Id"),
-        //col("parsed.Text").as("Text"),
-        col("parsed.FilteredText").as("sentence"),
-        col("parsed.User.ScreenName").as("UserToken"),
-        col("parsed.User.Location").as("UserLocation"),
-        concat_ws("", col("class.result")).as("emotion")
-        //concat_ws(",", col("parsed.HashtagEntities")).as("HashTags")
-      )).alias("value")
+      col("sentence"),
+      concat_ws("", col("class.result")).as("emotion")
     )
-  results.printSchema()
 
-  // Write classified tweets to Kafka twitter.classified topic
+  // Write the output as a csv file
   val writeStream = results
     .writeStream
-    .format("kafka")
-    .option("kafka.bootstrap.servers", kafkaHost)
-    .option("topic", "twitter.classified")
+    .outputMode("append")
+    .format("csv")
     .option("checkpointLocation", sparkWriteCheckPoint)
+    .option("path", "tweets")
+    .option("sep", "\t")
     .start()
   writeStream.awaitTermination()
 }
