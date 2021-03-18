@@ -27,31 +27,28 @@ object Main extends App {
 
   val mlModel = PipelineModel.read.load("v1_supervised")
   val results = mlModel.transform(df_flatten)
-  //val results = df_json
     .select(
-      col("parsed.CreatedAt").as("CreatedAt"),
-      col("parsed.Id").as("Id"),
-      //col("parsed.Text").as("Text"),
-      col("parsed.FilteredText").as("sentence"),
-      col("parsed.User.ScreenName").as("UserToken"),
-      col("parsed.User.Location").as("UserLocation"),
-      concat_ws("", col("class.result")).as("emotion")
-      //concat_ws(",", col("parsed.HashtagEntities")).as("HashTags")
+      col("parsed.Id").cast("string").alias("key"), // key must be string or bytes
+      to_json(struct(
+        col("parsed.CreatedAt").as("CreatedAt"),
+        col("parsed.Id").as("Id"),
+        //col("parsed.Text").as("Text"),
+        col("parsed.FilteredText").as("sentence"),
+        col("parsed.User.ScreenName").as("UserToken"),
+        col("parsed.User.Location").as("UserLocation"),
+        concat_ws("", col("class.result")).as("emotion")
+        //concat_ws(",", col("parsed.HashtagEntities")).as("HashTags")
+      )).alias("value")
     )
   results.printSchema()
 
-//  val writeStream = results.writeStream
-//    .outputMode("update")
-//    .format("console")
-//    .option("truncate", "false")
-//    .start()
-
+  // Write classified tweets to Kafka twitter.classified topic
   val writeStream = results
     .writeStream
-    .format("csv")
+    .format("kafka")
+    .option("kafka.bootstrap.servers", kafkaHost)
+    .option("topic", "twitter.classified")
     .option("checkpointLocation", sparkWriteCheckPoint)
-    .option("path", "twitter.classified")
-    //.option("sep", "\t")
     .start()
   writeStream.awaitTermination()
 }
