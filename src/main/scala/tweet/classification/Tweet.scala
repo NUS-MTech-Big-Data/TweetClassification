@@ -1,3 +1,5 @@
+package tweet.classification
+
 import org.apache.spark.sql.types.{ArrayType, LongType, StringType, StructType}
 
 object Tweet {
@@ -12,12 +14,12 @@ object Tweet {
 
     new StructType()
       //.add("payload", new StructType()
-        .add("CreatedAt", LongType)
-        .add("Id", LongType)
-        .add("Text", StringType)
-        .add("User", userSchema)
-        .add("HashtagEntities", ArrayType(hashTagSchema))
-        .add("FilteredText", StringType)
-//      )
+      .add("CreatedAt", LongType)
+      .add("Id", LongType)
+      .add("Text", StringType)
+      .add("User", userSchema)
+      .add("HashtagEntities", ArrayType(hashTagSchema))
+      .add("FilteredText", StringType)
+    //      )
   }
 }

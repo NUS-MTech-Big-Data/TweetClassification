@@ -1,18 +1,27 @@
+package tweet.classification
+
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.sql.functions.{concat_ws, _}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
 
 object Main extends App {
-  val kafkaHost = "192.168.1.77:9092"
-  val sparkWriteCheckPoint = "write_checkpoint"
+  val kafkaHost = "localhost:9092"
+  val sparkWriteCheckPoint = "write_checkpoint_tweet_classification"
+  val inputKafkaTopic = "twitter.clean"
+  val outputKafkaTopic = "twitter.classified"
   val spark = SparkSession.builder.appName("TweetClassification").master("local[*]").getOrCreate()
+  val hadoopConfig: Configuration = spark.sparkContext.hadoopConfiguration
+  hadoopConfig.set("fs.hdfs.impl", classOf[org.apache.hadoop.hdfs.DistributedFileSystem].getName)
+  hadoopConfig.set("fs.file.impl", classOf[org.apache.hadoop.fs.LocalFileSystem].getName)
+//  hadoopConfig.set("fs.s3n.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
   // Read tweets from Kafka twitter.clean topic
   val readStream = spark
     .readStream
     .format("kafka")
     .option("kafka.bootstrap.servers", kafkaHost)
-    .option("subscribe", "twitter.clean")
-    .option("startingOffsets", "earliest") // Always read from offset 0, for dev/testing purpose
+    .option("subscribe", inputKafkaTopic)
+    //    .option("startingOffsets", "earliest") // Always read from offset 0, for dev/testing purpose
     .option("failOnDataLoss", false)
     .load()
   readStream.printSchema()
@@ -47,7 +56,7 @@ object Main extends App {
     .writeStream
     .format("kafka")
     .option("kafka.bootstrap.servers", kafkaHost)
-    .option("topic", "twitter.classified")
+    .option("topic", outputKafkaTopic)
     .option("checkpointLocation", sparkWriteCheckPoint)
     .start()
   writeStream.awaitTermination()
